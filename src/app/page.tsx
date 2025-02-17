@@ -1,5 +1,5 @@
 "use client";
-
+// import "../../envconfig.ts";
 import { useState } from "react";
 import {
   Table,
@@ -55,8 +55,10 @@ export default function Home() {
     );
 
     try {
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      // console.log("BACKEND URL", process.env.BACKENDURL, apiUrl);
       const response = await fetch(
-        `http://localhost:3000/class/?className=${row.className}`
+        `${process.env.NEXT_PUBLIC_BACKENDURL}class/?className=${row.className}`
       );
       const data: ClassData = await response.json();
 

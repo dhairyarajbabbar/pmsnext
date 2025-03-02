@@ -124,9 +124,8 @@ export default function Home() {
     });
 
     await Promise.all(requests);
-  }, [dynamicColumn, category, detailProperty]); // ✅ Proper dependencies
+  }, [dynamicColumn, category, detailProperty]);
 
-  // ✅ UseEffect now correctly tracks fetchDynamicProperty
   useEffect(() => {
     fetchDynamicProperty();
   }, [fetchDynamicProperty]);

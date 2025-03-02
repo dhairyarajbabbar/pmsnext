@@ -1,155 +1,238 @@
 "use client";
-// import "../../envconfig.ts";
-import { useState } from "react";
+
+import { useState, useRef, useEffect, useCallback } from "react";
+import { HotTable } from "@handsontable/react";
+import "handsontable/dist/handsontable.full.css";
 import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectItem,
+  SelectTrigger,
+  SelectContent,
+  SelectValue,
+} from "@/components/ui/select";
+import { registerAllModules } from "handsontable/registry";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import type { HotTableClass } from "@handsontable/react";
 
-// Define the expected structure of the class data
-interface SizeRange {
-  minSize: number;
-  maxSize: number;
-}
-
-interface Pipe {
-  materialDescription: string;
-  sizeRange: SizeRange;
-}
-
-interface ClassData {
-  className: string;
-  corrosionAllowance: string;
-  basicMaterial: string;
-  pipe?: Pipe[];
-}
-
-interface TableRowData {
-  className: string;
-  size: string;
-  data?: ClassData | null;
-  loading: boolean;
-}
+registerAllModules();
 
 export default function Home() {
-  const [rows, setRows] = useState<TableRowData[]>([
-    { className: "", size: "", data: null, loading: false },
-  ]);
+  const hotRef = useRef<HotTableClass | null>(null);
+  const [dynamicColumn, setDynamicColumn] = useState("corrosionAllowance");
+  const [category, setCategory] = useState("pipe");
+  const [detailProperty, setDetailProperty] = useState("shortCode");
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Function to fetch class data based on class name and size
-  const fetchData = async (index: number) => {
-    const row = rows[index];
-    if (!row.className) return alert("Enter Class Name");
+  const [tableData, setTableData] = useState<string[][]>(
+    Array.from({ length: 100 }, () => ["", "", "", "", ""])
+  );
 
-    setRows((prevRows) =>
-      prevRows.map((r, i) =>
-        i === index ? { ...r, loading: true } : r
-      )
-    );
+  const properties = [
+    "corrosionAllowance",
+    "basicMaterial",
+    "sourService",
+    "rating",
+    "branchCode",
+    "reducerCode",
+    "PWHT",
+    "designCode",
+    "flangeCode",
+    "flangeRating",
+    "maxAllowableWorkingPressure",
+  ];
 
-    try {
-      // const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      // console.log("BACKEND URL", process.env.BACKENDURL, apiUrl);
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKENDURL}class/?className=${row.className}`
-      );
-      const data: ClassData = await response.json();
+  const categories = [
+    "pipe",
+    "nipple",
+    "fittings",
+    "plug",
+    "flange",
+    "gasket",
+    "bolt",
+    "nut",
+  ];
 
-      setRows((prevRows) =>
-        prevRows.map((r, i) =>
-          i === index ? { ...r, data, loading: false } : r
-        )
-      );
-    } catch (error) {
-      console.error("Error fetching class data:", error);
-      setRows((prevRows) =>
-        prevRows.map((r, i) =>
-          i === index ? { ...r, loading: false } : r
-        )
-      );
-    }
-  };
+  const detailProperties = [
+    "shortCode",
+    "sizeRange",
+    "ends",
+    "scheduleOrRating",
+    "materialDescription",
+    "note",
+    "remark",
+  ];
 
-  // Function to add a new row
-  const addRow = () => {
-    setRows([...rows, { className: "", size: "", data: null, loading: false }]);
-  };
+  const fetchDynamicProperty = useCallback(async () => {
+    const hotInstance = hotRef.current?.hotInstance;
+    if (!hotInstance) return;
+
+    const data = hotInstance.getData() as string[][];
+
+    const requests = data.map(async (row: string[], index: number) => {
+      const className = row[0];
+      const size = row[1];
+      if (!className || !size) return;
+
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKENDURL;
+        if (!backendUrl) {
+          console.error("Backend URL is not defined");
+          return;
+        }
+
+        const [response, response1] = await Promise.all([
+          fetch(
+            `${backendUrl}class/${className}/property/${dynamicColumn}?size=${size}`
+          ),
+          fetch(
+            `${backendUrl}class/${className}/property/${category}?size=${size}`
+          ),
+        ]);
+
+        if (!response.ok || !response1.ok) {
+          console.error(
+            "Failed to fetch data:",
+            response.status,
+            response1.status
+          );
+          return;
+        }
+
+        const dynamicValue = await response.json();
+        const categoryValue = await response1.json();
+
+        const categoryData = categoryValue?.value || {};
+        const selectedDetail = categoryData?.[detailProperty] || "N/A";
+
+        setTableData((prevData) => {
+          const newData = [...prevData];
+          newData[index] = [
+            className,
+            size,
+            JSON.stringify(dynamicValue) || "N/A",
+            selectedDetail,
+            prevData[index][4] || "",
+          ];
+          return newData;
+        });
+
+        hotInstance.setDataAtCell(index, 2, JSON.stringify(dynamicValue) || "N/A");
+        hotInstance.setDataAtCell(index, 3, selectedDetail);
+      } catch (error) {
+        console.error("Error fetching dynamic property:", error);
+      }
+    });
+
+    await Promise.all(requests);
+  }, [dynamicColumn, category, detailProperty]); // ✅ Proper dependencies
+
+  // ✅ UseEffect now correctly tracks fetchDynamicProperty
+  useEffect(() => {
+    fetchDynamicProperty();
+  }, [fetchDynamicProperty]);
 
   return (
-    <div className="grid grid-rows-[auto_1fr_auto] items-center justify-items-center min-h-screen p-8 pb-20 gap-6 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <Table>
-        <TableCaption>Piping Material Specification Management</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[150px]">Class Name</TableHead>
-            <TableHead className="w-[100px]">Size</TableHead>
-            <TableHead>Corrosion Allowance</TableHead>
-            <TableHead>Basic Material</TableHead>
-            <TableHead>Pipe Material</TableHead>
-            <TableHead className="text-center">Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, index) => (
-            <TableRow key={index}>
-              {/* Input for Class Name */}
-              <TableCell>
-                <Input
-                  value={row.className}
-                  onChange={(e) => {
-                    const newRows = [...rows];
-                    newRows[index].className = e.target.value;
-                    setRows(newRows);
-                  }}
-                  placeholder="Enter Class"
-                />
-              </TableCell>
+    <div className="w-full h-screen flex flex-col items-center justify-center p-8 pb-20 gap-6 sm:p-20">
+      <div className="flex gap-4 mb-4 w-full max-w-4xl">
+        <Select value={dynamicColumn} onValueChange={setDynamicColumn}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {properties.map((prop) => (
+              <SelectItem key={prop} value={prop}>
+                {prop}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-              {/* Input for Size */}
-              <TableCell>
-                <Input
-                  value={row.size}
-                  onChange={(e) => {
-                    const newRows = [...rows];
-                    newRows[index].size = e.target.value;
-                    setRows(newRows);
-                  }}
-                  placeholder="Enter Size"
-                />
-              </TableCell>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select Category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((cat) => (
+              <SelectItem key={cat} value={cat}>
+                {cat}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-              {/* Fetched Data Columns */}
-              <TableCell>{row.data?.corrosionAllowance ?? "-"}</TableCell>
-              <TableCell>{row.data?.basicMaterial ?? "-"}</TableCell>
-              <TableCell>
-                {row.data?.pipe?.[0]?.materialDescription ?? "-"}
-              </TableCell>
+        <Select value={detailProperty} onValueChange={setDetailProperty}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select Detail Property" />
+          </SelectTrigger>
+          <SelectContent>
+            {detailProperties.map((detail) => (
+              <SelectItem key={detail} value={detail}>
+                {detail}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-              {/* Fetch Button */}
-              <TableCell className="text-center">
-                <Button
-                  onClick={() => fetchData(index)}
-                  disabled={row.loading}
-                >
-                  {row.loading ? "Loading..." : "Fetch"}
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <div className="w-full max-w-6xl h-[600px] overflow-auto border border-gray-300 rounded-lg">
+        <HotTable
+          ref={hotRef}
+          data={tableData}
+          colHeaders={[
+            "Class Name",
+            "Size",
+            "Dynamic Data 1",
+            "Dynamic Data 2",
+            "Actions",
+          ]}
+          rowHeaders={true}
+          contextMenu={true}
+          manualColumnResize={true}
+          manualRowResize={true}
+          stretchH="all"
+          height="600px"
+          colWidths={[200, 150, 250, 250, 200]}
+          copyPaste={true}
+          allowInsertColumn={true}
+          allowInsertRow={true}
+          dropdownMenu={true}
+          filters={true}
+          columnSorting={true}
+          afterChange={(changes) => {
+            if (!changes) return;
+            const newData = [...tableData];
+            let shouldFetch = false;
+            changes.forEach(([row, col, oldValue, newValue]) => {
+              if (typeof col === "number") {
+                if (newValue !== oldValue) {
+                  newData[row][col] = newValue;
 
-      {/* Button to Add More Rows */}
-      <Button onClick={addRow} className="mt-4">
-        Add Row
-      </Button>
+                  if (col === 0 || col === 1) {
+                    shouldFetch = true;
+                  }
+                }
+              }
+            });
+            setTableData(newData);
+
+            if (shouldFetch) {
+              if (fetchTimeoutRef.current)
+                clearTimeout(fetchTimeoutRef.current);
+              fetchTimeoutRef.current = setTimeout(() => {
+                fetchDynamicProperty();
+              });
+            }
+          }}
+          cells={() => {
+            return { className: "htMiddle htCenter" };
+          }}
+          licenseKey="non-commercial-and-evaluation"
+        />
+      </div>
+
+      <div>
+        <Button onClick={fetchDynamicProperty}>Fetch Data</Button>
+      </div>
     </div>
   );
 }

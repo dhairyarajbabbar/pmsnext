@@ -99,37 +99,37 @@ export default function Page() {
       const rowData = Object.fromEntries(
         columns.map((col, index) => [col, row[index] || ""])
       );
-      let note = '';
+      const noteLines: string[] = [];
   
       conditions.forEach(({ condition, text }) => {
         if (evaluateCondition(condition, rowData)) {
-          note += (note ? "\n" : "") + processTemplate(text, rowData);
+          noteLines.push(`${noteLines.length + 1}. ${processTemplate(text, rowData)}`);
         }
       });
   
-      row[headersMap["Notes"]] = note;
+      row[headersMap["Notes"]] = noteLines.join("\n");
       return row;
     });
-  }, [columns, conditions, evaluateCondition]);  // ✅ Add dependencies
+  }, [columns, conditions, evaluateCondition]);
   
 
   useEffect(() => {
     setData((prevData) => updateNotes(prevData));
   }, [conditions, updateNotes]);
 
-  const addColumn = () => {
-    setColumns((prevColumns) => {
-      const newColumn = `Column ${prevColumns.length + 1}`;
-      return [
-        ...prevColumns.slice(0, -1),
-        newColumn,
-        prevColumns[prevColumns.length - 1],
-      ];
-    });
-    setData((prevData) =>
-      prevData.map((row) => [...row.slice(0, -1), "", row[row.length - 1]])
-    );
-  };
+  // const addColumn = () => {
+  //   setColumns((prevColumns) => {
+  //     const newColumn = `Column ${prevColumns.length + 1}`;
+  //     return [
+  //       ...prevColumns.slice(0, -1),
+  //       newColumn,
+  //       prevColumns[prevColumns.length - 1],
+  //     ];
+  //   });
+  //   setData((prevData) =>
+  //     prevData.map((row) => [...row.slice(0, -1), "", row[row.length - 1]])
+  //   );
+  // };
 
   const editColumnHeader = (index: number, newHeader: string) => {
     setColumns((prevColumns) => {
@@ -166,7 +166,7 @@ export default function Page() {
   return (
     <div className="p-4 space-y-4">
       <h1 className="text-xl font-semibold">Dynamic Notes in Spreadsheet</h1>
-      <Button onClick={addColumn}>Add Column</Button>
+      {/* <Button onClick={addColumn}>Add Column</Button> */}
 
       <HotTable
         ref={hotRef}

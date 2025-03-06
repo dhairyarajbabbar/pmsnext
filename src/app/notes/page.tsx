@@ -80,17 +80,11 @@ export default function Page() {
     template: string,
     rowData: Record<string, string | number | boolean | null>
   ): string => {
-    try {
-      const func = new Function(
-        ...Object.keys(rowData),
-        `return \`${template}\`;`
-      );
-      return func(...Object.values(rowData));
-    } catch (error) {
-      console.error("Template processing error:", error);
-      return template;
-    }
-  };
+    return template.replace(/\{\$(\w+)\}/g, (_, key) => {
+      return rowData[key] !== undefined ? `${String(rowData[key])}` : `{$${key}}`;
+    });
+  };  
+  
 
   const updateNotes = useCallback((tableData: string[][]): string[][] => {
     const headersMap: Record<string, number> = columns.reduce(
@@ -105,7 +99,7 @@ export default function Page() {
       const rowData = Object.fromEntries(
         columns.map((col, index) => [col, row[index] || ""])
       );
-      let note = "";
+      let note = '';
   
       conditions.forEach(({ condition, text }) => {
         if (evaluateCondition(condition, rowData)) {

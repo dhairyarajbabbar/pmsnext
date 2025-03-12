@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import "handsontable/dist/handsontable.full.css";
-import { HotTable } from "@handsontable/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { registerAllModules } from "handsontable/registry";
 import { HyperFormula } from "hyperformula";
 import { Textarea } from "@/components/ui/textarea";
-
+// import Handsontable from "handsontable";
+import { HotTable, HotTableClass } from "@handsontable/react";
 registerAllModules();
 
 interface Condition {
@@ -18,7 +18,7 @@ interface Condition {
 }
 
 export default function Page() {
-  const hotRef = useRef(null);
+  const hotRef = useRef<HotTableClass | null>(null);
   const initialColumns = [
     "TagNumber",
     "lineNumber",
@@ -37,8 +37,12 @@ export default function Page() {
       .fill(null)
       .map(() => Array(columns.length).fill(""))
   );
-  const [conditions, setConditions] = useState<Condition[]>([{ condition: "", text: "", showNumber: true }]);
-  const [tempConditions, setTempConditions] = useState<Condition[]>([{ condition: "", text: "", showNumber: true }]);
+  const [conditions, setConditions] = useState<Condition[]>([
+    { condition: "", text: "", showNumber: true },
+  ]);
+  const [tempConditions, setTempConditions] = useState<Condition[]>([
+    { condition: "", text: "", showNumber: true },
+  ]);
   const isValidCondition = (condition: string): boolean => {
     if (!condition.trim()) return false;
     try {
@@ -54,33 +58,32 @@ export default function Page() {
       condition: string,
       rowData: Record<string, string | number | boolean | null>
     ): boolean => {
-      // If condition is empty or just whitespace, return false immediately
       if (!condition.trim()) return false;
-      
+
       try {
         // Validate condition format first
         if (!isValidCondition(condition)) return false;
-        
+
         // Create sanitized data with proper type conversion
         const sanitizedData = Object.fromEntries(
           Object.entries(rowData).map(([key, value]) => {
             // Convert string 'true'/'false' to actual booleans for condition evaluation
-            if (typeof value === 'string') {
+            if (typeof value === "string") {
               const lowerValue = value.toLowerCase().trim();
-              if (lowerValue === 'true') return [key, true];
-              if (lowerValue === 'false') return [key, false];
+              if (lowerValue === "true") return [key, true];
+              if (lowerValue === "false") return [key, false];
             }
             return [key, value];
           })
         );
-        
+
         try {
           // Use Function constructor to evaluate the condition with additional safety
           const func = new Function(
             ...Object.keys(sanitizedData),
             `try { return ${condition}; } catch(e) { return false; }`
           );
-          
+
           return Boolean(func(...Object.values(sanitizedData)));
         } catch {
           // If function creation or execution fails, return false
@@ -100,9 +103,7 @@ export default function Page() {
     rowData: Record<string, string | number | boolean | null>
   ): string => {
     return template.replace(/\{\$(\w+)\}/g, (_, key) => {
-      return rowData[key] !== undefined
-        ? String(rowData[key])
-        : `{$${key}}`;
+      return rowData[key] !== undefined ? String(rowData[key]) : `{$${key}}`;
     });
   };
   const toggleShowNumber = (index: number, value: boolean) => {
@@ -123,7 +124,7 @@ export default function Page() {
         },
         {} as Record<string, number>
       );
-  
+
       return tableData.map((row) => {
         try {
           const rowData = Object.fromEntries(
@@ -131,21 +132,23 @@ export default function Page() {
           );
           const noteLines: string[] = [];
           let noteIndex = 1;
-  
+
           conditions.forEach(({ condition, text, showNumber }) => {
             try {
               const conditionMet = evaluateCondition(condition, rowData);
-              
+
               if (conditionMet) {
                 try {
                   const processedText = processTemplate(text, rowData);
-                  const textLines = processedText.split('\n');
-                  
+                  const textLines = processedText.split("\n");
+
                   if (showNumber) {
                     const firstLine = `${noteIndex}. ${textLines[0]}`;
                     noteLines.push(firstLine);
                     if (textLines.length > 1) {
-                      const padding = " ".repeat(noteIndex.toString().length + 2);
+                      const padding = " ".repeat(
+                        noteIndex.toString().length + 2
+                      );
                       for (let i = 1; i < textLines.length; i++) {
                         noteLines.push(`${padding}${textLines[i]}`);
                       }
@@ -162,7 +165,7 @@ export default function Page() {
               console.warn("Skipping condition due to error:", condition);
             }
           });
-  
+
           row[headersMap["Notes"]] = noteLines.join("\n");
         } catch (rowErr) {
           // If processing a row fails, leave the notes column unchanged
@@ -178,31 +181,15 @@ export default function Page() {
     setData((prevData) => updateNotes(prevData));
   }, [conditions, updateNotes]);
 
-  // const addColumn = () => {
-  //   setColumns((prevColumns) => {
-  //     const newColumn = `Column ${prevColumns.length + 1}`;
-  //     return [
-  //       ...prevColumns.slice(0, -1),
-  //       newColumn,
-  //       prevColumns[prevColumns.length - 1],
-  //     ];
-  //   });
-  //   setData((prevData) =>
-  //     prevData.map((row) => [...row.slice(0, -1), "", row[row.length - 1]])
-  //   );
-  // };
-
-  const editColumnHeader = (index: number, newHeader: string) => {
-    setColumns((prevColumns) => {
-      const updatedColumns = [...prevColumns];
-      updatedColumns[index] = newHeader;
-      return updatedColumns;
-    });
-  };
-
   const addCondition = () => {
-    setConditions([...conditions, { condition: "", text: "", showNumber: true }]);
-    setTempConditions([...tempConditions, { condition: "", text: "", showNumber: true }]);
+    setConditions([
+      ...conditions,
+      { condition: "", text: "", showNumber: true },
+    ]);
+    setTempConditions([
+      ...tempConditions,
+      { condition: "", text: "", showNumber: true },
+    ]);
   };
 
   const updateConditionTemp = (
@@ -217,7 +204,7 @@ export default function Page() {
 
   const updateCondition = (index: number, field: "condition" | "text") => {
     const value = tempConditions[index][field];
-    
+
     if (field === "condition") {
       // For conditions, we'll still update even if invalid, but mark them
       const updatedConditions = [...conditions];
@@ -231,39 +218,43 @@ export default function Page() {
     }
   };
 
-  const validateCondition = (condition: string): { isValid: boolean; message: string } => {
+  const validateCondition = (
+    condition: string
+  ): { isValid: boolean; message: string } => {
     if (!condition.trim()) {
       return { isValid: false, message: "Empty condition" };
     }
-    
+
     try {
       new Function(`return ${condition};`);
       return { isValid: true, message: "Valid condition" };
     } catch {
-      return { 
-        isValid: false, 
-        message: "Invalid syntax" 
+      return {
+        isValid: false,
+        message: "Invalid syntax",
       };
     }
   };
 
   const renderConditionInput = (cond: Condition, index: number) => {
     const validation = validateCondition(cond.condition);
-    
+
     return (
       <div className="relative w-2/3">
         <Input
-          className={`w-full ${!validation.isValid && cond.condition.trim() ? 'border-red-500' : ''}`}
+          className={`w-full ${
+            !validation.isValid && cond.condition.trim() ? "border-red-500" : ""
+          }`}
           type="text"
           placeholder="Condition (e.g., sour && toxic)"
           value={cond.condition}
-          onChange={(e) => updateConditionTemp(index, "condition", e.target.value)}
+          onChange={(e) =>
+            updateConditionTemp(index, "condition", e.target.value)
+          }
           onBlur={() => updateCondition(index, "condition")}
         />
         {!validation.isValid && cond.condition.trim() && (
-          <div className="text-xs text-red-500 mt-1">
-            {validation.message}
-          </div>
+          <div className="text-xs text-red-500 mt-1">{validation.message}</div>
         )}
       </div>
     );
@@ -271,13 +262,24 @@ export default function Page() {
   return (
     <div className="p-4 space-y-4">
       <h1 className="text-xl font-semibold">Dynamic Notes in Spreadsheet</h1>
-      {/* <Button onClick={addColumn}>Add Column</Button> */}
       <HotTable
         ref={hotRef}
         data={data}
         colHeaders={columns}
         rowHeaders={true}
-        contextMenu={true}
+        contextMenu={{
+          items: {
+            row_above: {},
+            row_below: {},
+            col_left: {},
+            col_right: {},
+            remove_col: {},
+            remove_row: {},
+            separator1: "---------",
+            filter_by_condition: {}, // Enables filtering
+            filter_action_bar: {}, // Shows the "OK" and "Cancel" buttons in filter UI
+          },
+        }}
         manualColumnResize={true}
         manualRowResize={true}
         stretchH="all"
@@ -292,18 +294,6 @@ export default function Page() {
         formulas={{
           engine: hyperformulaInstance,
         }}
-        afterGetColHeader={(col, TH) => {
-          if (col >= 0) {
-            if (TH.querySelector("input")) return;
-            const input = document.createElement("input");
-            input.type = "text";
-            input.value = columns[col];
-            input.className = "w-full p-1 text-center border border-gray-300";
-            input.onchange = (e) =>
-              editColumnHeader(col, (e.target as HTMLInputElement).value);
-            TH.appendChild(input);
-          }
-        }}
         afterChange={(changes) => {
           if (!changes) return;
           const newData = [...data];
@@ -317,42 +307,144 @@ export default function Page() {
         cells={() => {
           return { className: "htMiddle htCenter" };
         }}
+        afterCreateCol={(index, amount) => {
+          console.log(index, amount, columns);
+          setColumns((prevColumns) => {
+            const newColumns = [...prevColumns];
+            for (let i = 0; i < amount; i++) {
+              newColumns.splice(index + i, 0, `Column ${index + i + 1}`);
+            }
+            return newColumns.slice(0, prevColumns.length + amount); // Prevent extra columns
+          });
+          setData((prevData) =>
+            prevData.map((row) => {
+              const newRow = [...row];
+              // Insert empty values for the new column at the correct index
+              for (let i = 0; i < amount; i++) {
+                newRow.splice(index + i, 0, "");
+              }
+              return newRow;
+            })
+          );
+          setTimeout(() => {
+            hotRef.current?.hotInstance?.render();
+          }, 10); 
+          console.log(index, amount, columns);
+        }}
+        afterGetColHeader={(col, TH) => {
+          // console.log(columns);
+
+          // console.log(col, TH);
+          if (col >= 0) {
+            // Remove old custom header to prevent duplicates
+            const existingContainer = TH.querySelector(".custom-header");
+            if (existingContainer) {
+              existingContainer.remove();
+            }
+            // Create a container div for inline editing
+            const container = document.createElement("div");
+            container.className =
+              "custom-header flex items-center justify-center w-full px-4 relative";
+            // Create a span for the default header text (visible by default)
+            const headerText = document.createElement("span");
+            headerText.textContent = columns[col]; // Always use the latest column name
+            headerText.className =
+              "cursor-pointer text-center w-full font-semibold";
+            // Create an input field (hidden initially)
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = columns[col];
+            input.className = "w-full p-1 text-center border border-gray-300 rounded-md hidden";
+            // Prevent Handsontable from interfering with input focus
+            input.addEventListener("keydown", (event) => {
+              event.stopPropagation(); // Stops Handsontable from hijacking input
+            });
+            // Function to save the edited column name
+            const saveColumnName = () => {
+              const newValue = input.value.trim();
+              if (newValue && newValue !== columns[col]) {
+                setColumns((prevColumns) => {
+                  const updatedColumns = [...prevColumns];
+                  updatedColumns[col] = newValue;
+                  return updatedColumns;
+                });
+                // Manually trigger Handsontable header update
+                setTimeout(() => {
+                  hotRef.current?.hotInstance?.render();
+                }, 10);             
+              }
+              input.classList.add("hidden"); // Hide input field
+              headerText.classList.remove("hidden"); // Show text
+            };
+
+            // Handle double-click to switch to edit mode
+            headerText.ondblclick = (event) => {
+              event.stopPropagation(); // Prevent interference with sorting
+              input.classList.remove("hidden"); // Show input field
+              headerText.classList.add("hidden"); // Hide text
+              input.focus();
+              input.select();
+            };
+            // Handle input blur (click outside)
+            input.onblur = saveColumnName;
+            // Handle Enter key press to save
+            input.onkeydown = (event) => {
+              if (event.key === "Enter") {
+                event.preventDefault(); // Prevent form submission behavior
+                saveColumnName();
+              }
+            };
+
+            // Create an invisible spacer to align text with dropdown
+            const dropdownSpacer = document.createElement("span");
+            dropdownSpacer.className = "absolute right-2 w-6 h-full";
+
+            // Append elements
+            container.appendChild(headerText);
+            container.appendChild(input);
+            container.appendChild(dropdownSpacer); // Adds space for dropdown
+            TH.appendChild(container);
+          }
+          console.log(columns);
+        }}
         licenseKey="non-commercial-and-evaluation"
       />
       <div className="mt-4 w-full space-y-2">
-      <label className="block text-lg font-medium">
-        Define Note Conditions:
-      </label>
-      {tempConditions.map((cond, index) => (
-        <div key={index} className="flex flex-col gap-2">
-          <div className="flex gap-2 items-center">
-            {renderConditionInput(cond, index)}
-            <div className="flex items-center gap-2 w-1/3">
-              <label className="whitespace-nowrap">Show Numbering:</label>
-              <select
-                className="p-2 border rounded"
-                value={cond.showNumber ? "true" : "false"}
-                onChange={(e) => toggleShowNumber(index, e.target.value === "true")}
-              >
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
+        <label className="block text-lg font-medium">
+          Define Note Conditions:
+        </label>
+        {tempConditions.map((cond, index) => (
+          <div key={index} className="flex flex-col gap-2">
+            <div className="flex gap-2 items-center">
+              {renderConditionInput(cond, index)}
+              <div className="flex items-center gap-2 w-1/3">
+                <label className="whitespace-nowrap">Show Numbering:</label>
+                <select
+                  className="p-2 border rounded"
+                  value={cond.showNumber ? "true" : "false"}
+                  onChange={(e) =>
+                    toggleShowNumber(index, e.target.value === "true")
+                  }
+                >
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
             </div>
+            <Textarea
+              className="w-full min-h-[100px]"
+              placeholder="Text to display (use {$columnName} for dynamic values, press Enter for new lines)"
+              value={cond.text}
+              onChange={(e) =>
+                updateConditionTemp(index, "text", e.target.value)
+              }
+              onBlur={() => updateCondition(index, "text")}
+            />
+            <hr className="my-2" />
           </div>
-          <Textarea
-            className="w-full min-h-[100px]"
-            placeholder="Text to display (use {$columnName} for dynamic values, press Enter for new lines)"
-            value={cond.text}
-            onChange={(e) =>
-              updateConditionTemp(index, "text", e.target.value)
-            }
-            onBlur={() => updateCondition(index, "text")}
-          />
-          <hr className="my-2" />
-        </div>
-      ))}
-      <Button onClick={addCondition}>Add Condition</Button>
-    </div>
+        ))}
+        <Button onClick={addCondition}>Add Condition</Button>
+      </div>
     </div>
   );
 }

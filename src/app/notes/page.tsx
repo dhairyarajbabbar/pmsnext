@@ -308,7 +308,6 @@ export default function Page() {
           return { className: "htMiddle htCenter" };
         }}
         afterCreateCol={(index, amount) => {
-          console.log(index, amount, columns);
           setColumns((prevColumns) => {
             const newColumns = [...prevColumns];
             for (let i = 0; i < amount; i++) {
@@ -329,12 +328,8 @@ export default function Page() {
           setTimeout(() => {
             hotRef.current?.hotInstance?.render();
           }, 10); 
-          console.log(index, amount, columns);
         }}
         afterGetColHeader={(col, TH) => {
-          // console.log(columns);
-
-          // console.log(col, TH);
           if (col >= 0) {
             // Remove old custom header to prevent duplicates
             const existingContainer = TH.querySelector(".custom-header");
@@ -405,7 +400,6 @@ export default function Page() {
             container.appendChild(dropdownSpacer); // Adds space for dropdown
             TH.appendChild(container);
           }
-          console.log(columns);
         }}
         licenseKey="non-commercial-and-evaluation"
       />
